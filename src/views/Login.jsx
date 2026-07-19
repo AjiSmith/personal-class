@@ -72,10 +72,7 @@ export function Login() {
 
         {import.meta.env.VITE_USE_MOCK_AUTH === 'true' && (
           <div className="mt-6 text-[11px] text-on-surface-muted border-t border-border pt-4 space-y-1">
-            <p className="font-semibold uppercase tracking-[0.1em]">Mode Testing Aktif</p>
-            <p>admin / admin123 — Developer</p>
-            <p>sekretaris / sekretaris123 — Sekretaris</p>
-            <p>guru / guru123 — Guru</p>
+            <p className="font-semibold uppercase tracking-[0.1em]">@Azimas P.S.</p>
           </div>
         )}
       </div>
