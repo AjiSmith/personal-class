@@ -1,7 +1,5 @@
-import React, { useMemo, useState } from 'react';
-
-// TODO(supabase): upsert ke tabel `class_funds` (student_id, period, amount)
-// setiap kali input di-blur / berubah, mirip pola AttendanceTracker.
+import React, { useEffect, useMemo, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 function formatRupiah(n) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n || 0);
@@ -9,20 +7,71 @@ function formatRupiah(n) {
 
 export function ClassFunds() {
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
-  const [rows, setRows] = useState([
-    { id: '1', absent_no: 1, full_name: 'Ahmad Fauzan', amount: 20000 },
-    { id: '2', absent_no: 2, full_name: 'Siti Aisyah', amount: 15000 },
-  ]);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadFunds(period);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period]);
+
+  async function loadFunds(selectedPeriod) {
+    setLoading(true);
+    setError('');
+    const periodDate = `${selectedPeriod}-01`;
+
+    const { data: students, error: studentsError } = await supabase
+      .from('students')
+      .select('id, absent_no, full_name')
+      .eq('is_active', true)
+      .order('absent_no', { ascending: true });
+    if (studentsError) {
+      setError(studentsError.message);
+      setLoading(false);
+      return;
+    }
+
+    const { data: funds, error: fundsError } = await supabase
+      .from('class_funds')
+      .select('student_id, amount')
+      .eq('period', periodDate);
+    if (fundsError) {
+      setError(fundsError.message);
+      setLoading(false);
+      return;
+    }
+
+    const amountByStudent = {};
+    (funds ?? []).forEach((f) => {
+      amountByStudent[f.student_id] = f.amount;
+    });
+
+    setRows(
+      (students ?? []).map((s) => ({
+        id: s.id,
+        absent_no: s.absent_no,
+        full_name: s.full_name,
+        amount: amountByStudent[s.id] ?? 0,
+      }))
+    );
+    setLoading(false);
+  }
 
   const total = useMemo(() => rows.reduce((sum, r) => sum + Number(r.amount || 0), 0), [rows]);
 
-  function updateAmount(id, value) {
+  async function updateAmount(id, value) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, amount: value } : r)));
-    // TODO(supabase): await supabase.from('class_funds').upsert({ student_id: id, period: `${period}-01`, amount: value }, { onConflict: 'student_id,period' });
+    const periodDate = `${period}-01`;
+    const { error } = await supabase
+      .from('class_funds')
+      .upsert({ student_id: id, period: periodDate, amount: Number(value) || 0 }, { onConflict: 'student_id,period' });
+    if (error) setError(error.message);
   }
 
   return (
     <div className="space-y-4">
+      {error && <p className="text-primary text-xs font-semibold">{error}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="bg-tertiary border border-border rounded-xl px-6 py-4">
           <p className="text-xs text-on-surface-muted uppercase tracking-[0.14em] font-semibold">
@@ -47,13 +96,20 @@ export function ClassFunds() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-on-surface-muted text-xs uppercase tracking-[0.1em] border-b border-border">
-              <th className="text-left font-semibold px-4 py-3">Absen</th>
+              <th className="text-left font-semibold px-4 py-3">No. Absen</th>
               <th className="text-left font-semibold px-4 py-3">Nama</th>
               <th className="text-right font-semibold px-4 py-3">Jumlah (Rp)</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {loading && (
+              <tr>
+                <td colSpan={3} className="px-4 py-6 text-center text-on-surface-muted">
+                  Memuat data kas kelas...
+                </td>
+              </tr>
+            )}
+            {!loading && rows.map((r) => (
               <tr key={r.id} className="border-b border-border last:border-0">
                 <td className="px-4 py-3 text-on-surface-muted">{r.absent_no}</td>
                 <td className="px-4 py-3 text-secondary font-medium">{r.full_name}</td>

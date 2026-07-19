@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Menu, Bell, UserCircle } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 import { MOCK_NOTIFICATIONS } from '../lib/mockNotifications';
 
 const ROLE_LABEL = {
@@ -11,7 +11,6 @@ const ROLE_LABEL = {
 };
 
 const USE_MOCK_AUTH = import.meta.env.VITE_USE_MOCK_AUTH === 'true';
-const SUPABASE_READY = isSupabaseConfigured();
 
 export function Header({ title, onOpenMobileMenu }) {
   const { profile } = useAuth();
@@ -22,7 +21,7 @@ export function Header({ title, onOpenMobileMenu }) {
   useEffect(() => {
     if (!profile) return;
 
-    if (USE_MOCK_AUTH || !SUPABASE_READY) {
+    if (USE_MOCK_AUTH) {
       setNotifications(MOCK_NOTIFICATIONS);
       return;
     }
@@ -51,8 +50,6 @@ export function Header({ title, onOpenMobileMenu }) {
   async function handleOpen() {
     setShowAlerts((v) => !v);
     if (USE_MOCK_AUTH || !profile) return;
-
-    if (!supabase) return;
 
     // Tandai semua notifikasi yang terlihat sebagai sudah dibaca.
     const unread = notifications.filter((n) => !readIds.has(n.id));

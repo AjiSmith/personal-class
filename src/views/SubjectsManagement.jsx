@@ -1,19 +1,40 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Pencil, X } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
-// TODO(supabase): CRUD ke tabel `subjects` (subject_name, teacher_name, duration_minutes).
-// Karena "dikelola developer", batasi akses tulis lewat RLS policy `developer_write_subjects`.
+const emptyForm = { subject_name: '', teacher_name: '', duration_minutes: 45, day_of_week: '' };
 
-const emptyForm = { subject_name: '', teacher_name: '', duration_minutes: 45 };
+const DAYS = [
+  { value: 1, label: 'Senin' },
+  { value: 2, label: 'Selasa' },
+  { value: 3, label: 'Rabu' },
+  { value: 4, label: 'Kamis' },
+  { value: 5, label: 'Jumat' },
+  { value: 6, label: 'Sabtu' },
+  { value: 0, label: 'Minggu' },
+];
 
 export function SubjectsManagement() {
-  const [subjects, setSubjects] = useState([
-    { id: '1', subject_name: 'Pemrograman Web', teacher_name: 'Bu Ratna', duration_minutes: 90 },
-    { id: '2', subject_name: 'Basis Data', teacher_name: 'Pak Yusuf', duration_minutes: 90 },
-  ]);
+  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    loadSubjects();
+  }, []);
+
+  async function loadSubjects() {
+    const { data, error } = await supabase
+      .from('subjects')
+      .select('*')
+      .order('subject_name', { ascending: true });
+    if (error) setError(error.message);
+    else setSubjects(data ?? []);
+    setLoading(false);
+  }
 
   function openAdd() {
     setEditingId(null);
@@ -23,22 +44,34 @@ export function SubjectsManagement() {
 
   function openEdit(subject) {
     setEditingId(subject.id);
-    setForm(subject);
+    setForm({
+      subject_name: subject.subject_name,
+      teacher_name: subject.teacher_name,
+      duration_minutes: subject.duration_minutes,
+      day_of_week: subject.day_of_week ?? '',
+    });
     setModalOpen(true);
   }
 
-  function handleSave(e) {
+  async function handleSave(e) {
     e.preventDefault();
+    const payload = { ...form, day_of_week: form.day_of_week === '' ? null : Number(form.day_of_week) };
     if (editingId) {
-      setSubjects((prev) => prev.map((s) => (s.id === editingId ? { ...s, ...form } : s)));
+      const { error } = await supabase.from('subjects').update(payload).eq('id', editingId);
+      if (error) return setError(error.message);
+      setSubjects((prev) => prev.map((s) => (s.id === editingId ? { ...s, ...payload } : s)));
     } else {
-      setSubjects((prev) => [...prev, { id: crypto.randomUUID(), ...form }]);
+      const { data, error } = await supabase.from('subjects').insert(payload).select().single();
+      if (error) return setError(error.message);
+      setSubjects((prev) => [...prev, data]);
     }
+    setError('');
     setModalOpen(false);
   }
 
   return (
     <div className="space-y-4">
+      {error && <p className="text-primary text-xs font-semibold">{error}</p>}
       <div className="flex justify-end">
         <button
           onClick={openAdd}
@@ -54,15 +87,33 @@ export function SubjectsManagement() {
             <tr className="text-on-surface-muted text-xs uppercase tracking-[0.1em] border-b border-border">
               <th className="text-left font-semibold px-4 py-3">Mata Pelajaran</th>
               <th className="text-left font-semibold px-4 py-3">Guru Pengampu</th>
+              <th className="text-left font-semibold px-4 py-3">Hari</th>
               <th className="text-left font-semibold px-4 py-3">Durasi (menit)</th>
               <th className="text-right font-semibold px-4 py-3">Aksi</th>
             </tr>
           </thead>
           <tbody>
+            {loading && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-on-surface-muted">
+                  Memuat mata pelajaran...
+                </td>
+              </tr>
+            )}
+            {!loading && subjects.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-on-surface-muted">
+                  Belum ada mata pelajaran.
+                </td>
+              </tr>
+            )}
             {subjects.map((s) => (
               <tr key={s.id} className="border-b border-border last:border-0">
                 <td className="px-4 py-3 text-secondary font-medium">{s.subject_name}</td>
                 <td className="px-4 py-3 text-on-surface-muted">{s.teacher_name}</td>
+                <td className="px-4 py-3 text-on-surface-muted">
+                  {DAYS.find((d) => d.value === s.day_of_week)?.label ?? '-'}
+                </td>
                 <td className="px-4 py-3 text-on-surface-muted">{s.duration_minutes}</td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={() => openEdit(s)} className="p-1.5 hover:text-primary text-on-surface-muted">
@@ -114,6 +165,21 @@ export function SubjectsManagement() {
                   onChange={(e) => setForm({ ...form, duration_minutes: Number(e.target.value) })}
                   className="mt-1 w-full rounded-md px-3 py-2 text-secondary"
                 />
+              </div>
+              <div>
+                <label className="text-xs text-on-surface-muted uppercase tracking-[0.1em]">Hari</label>
+                <select
+                  value={form.day_of_week}
+                  onChange={(e) => setForm({ ...form, day_of_week: e.target.value })}
+                  className="mt-1 w-full rounded-md px-3 py-2 text-secondary"
+                >
+                  <option value="">- Pilih Hari -</option>
+                  {DAYS.map((d) => (
+                    <option key={d.value} value={d.value}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button
                 type="submit"

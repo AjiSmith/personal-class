@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 
@@ -16,34 +16,64 @@ const STATUS_STYLE = {
   alfa: 'bg-surface-2 text-secondary border border-border',
 };
 
-// TODO(supabase): muat siswa aktif dari tabel `students`, dan muat status
-// tersimpan untuk `date` dari tabel `attendance` (upsert on change).
-
 export function AttendanceTracker() {
   const { profile } = useAuth();
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [students] = useState([
-    { id: '1', absent_no: 1, full_name: 'Ahmad Fauzan' },
-    { id: '2', absent_no: 2, full_name: 'Siti Aisyah' },
-  ]);
+  const [students, setStudents] = useState([]);
   const [statusMap, setStatusMap] = useState({}); // { studentId: status }
+  const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadStudents();
+  }, []);
+
+  useEffect(() => {
+    loadAttendanceForDate(date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, students.length]);
+
+  async function loadStudents() {
+    const { data, error } = await supabase
+      .from('students')
+      .select('id, absent_no, full_name')
+      .eq('is_active', true)
+      .order('absent_no', { ascending: true });
+    if (error) setError(error.message);
+    else setStudents(data ?? []);
+    setLoading(false);
+  }
+
+  async function loadAttendanceForDate(selectedDate) {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('student_id, status')
+      .eq('attendance_date', selectedDate);
+    if (error) return setError(error.message);
+    const map = {};
+    (data ?? []).forEach((row) => {
+      map[row.student_id] = row.status;
+    });
+    setStatusMap(map);
+  }
 
   async function setStatus(studentId, status) {
     setStatusMap((prev) => ({ ...prev, [studentId]: status }));
     setSavingId(studentId);
 
-    // Autosave langsung ke Supabase begitu tombol ditekan - tidak perlu tombol simpan.
-    // await supabase.from('attendance').upsert(
-    //   { student_id: studentId, attendance_date: date, status, recorded_by: profile.id },
-    //   { onConflict: 'student_id,attendance_date' }
-    // );
+    const { error } = await supabase.from('attendance').upsert(
+      { student_id: studentId, attendance_date: date, status, recorded_by: profile?.id },
+      { onConflict: 'student_id,attendance_date' }
+    );
+    if (error) setError(error.message);
 
-    setTimeout(() => setSavingId(null), 400); // indikator "tersimpan" sesaat
+    setTimeout(() => setSavingId(null), 400);
   }
 
   return (
     <div className="space-y-4">
+      {error && <p className="text-primary text-xs font-semibold">{error}</p>}
       <div className="flex items-center gap-3">
         <label className="text-xs text-on-surface-muted uppercase tracking-[0.1em] font-semibold">
           Tanggal
@@ -66,7 +96,14 @@ export function AttendanceTracker() {
             </tr>
           </thead>
           <tbody>
-            {students.map((s) => (
+            {loading && (
+              <tr>
+                <td colSpan={3} className="px-4 py-6 text-center text-on-surface-muted">
+                  Memuat data siswa...
+                </td>
+              </tr>
+            )}
+            {!loading && students.map((s) => (
               <tr key={s.id} className="border-b border-border last:border-0">
                 <td className="px-4 py-3 text-on-surface-muted">{s.absent_no}</td>
                 <td className="px-4 py-3 text-secondary font-medium">{s.full_name}</td>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { supabase } from './supabaseClient';
 import { MOCK_ACCOUNTS } from './mockAccounts';
 
 // Role yang didukung sistem. Simpan juga sebagai CHECK constraint di kolom
@@ -15,8 +15,6 @@ export const ROLES = {
 // Berguna untuk mengetes UI & RBAC lebih dulu. JANGAN nyalakan ini di build
 // production.
 const USE_MOCK_AUTH = import.meta.env.VITE_USE_MOCK_AUTH === 'true';
-const SUPABASE_READY = isSupabaseConfigured();
-const SHOULD_USE_MOCK_AUTH = USE_MOCK_AUTH || !SUPABASE_READY;
 
 const AuthContext = createContext(null);
 
@@ -26,7 +24,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (SHOULD_USE_MOCK_AUTH) {
+    if (USE_MOCK_AUTH) {
       // Mode mock: tidak ada sesi tersimpan antar refresh, murni untuk testing.
       setLoading(false);
       return;
@@ -51,11 +49,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   async function fetchProfile(userId) {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-
     const { data, error } = await supabase
       .from('users')
       .select('id, username, full_name, role')
@@ -66,7 +59,7 @@ export function AuthProvider({ children }) {
   }
 
   async function signIn(username, password) {
-    if (SHOULD_USE_MOCK_AUTH) {
+    if (USE_MOCK_AUTH) {
       const account = MOCK_ACCOUNTS.find(
         (a) => a.username === username && a.password === password
       );
@@ -84,15 +77,6 @@ export function AuthProvider({ children }) {
       return { data: { user: { id: account.id } }, error: null };
     }
 
-    if (!supabase) {
-      return {
-        data: null,
-        error: {
-          message: 'Supabase belum dikonfigurasi. Set VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel/Netlify.',
-        },
-      };
-    }
-
     // Login berbasis username: kita mapping username -> email pseudo di Supabase Auth
     // (mis. `${username}@valrise.local`) agar tetap bisa memakai Supabase Auth password-based.
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -103,12 +87,11 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    if (SHOULD_USE_MOCK_AUTH) {
+    if (USE_MOCK_AUTH) {
       setSession(null);
       setProfile(null);
       return;
     }
-    if (!supabase) return;
     await supabase.auth.signOut();
   }
 

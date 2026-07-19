@@ -1,57 +1,61 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Send, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/AuthContext';
 
-const USE_MOCK_AUTH = import.meta.env.VITE_USE_MOCK_AUTH === 'true';
-
-// Halaman ini hanya muncul di sidebar untuk role `developer` (lihat
-// permission 'notifications.manage' di App.jsx + matrix di AuthContext.jsx).
-// RLS di Supabase (`developer_write_notifications`) menegakkan pembatasan ini
-// juga di sisi database, bukan cuma disembunyikan di UI.
+// RLS di supabase/schema.sql (`developer_write_notifications`) sudah membatasi
+// insert/update/delete hanya untuk role developer - kalau ada yang memanggil
+// endpoint ini lewat cara lain, database tetap menolaknya.
 
 export function NotificationsCenter() {
   const { profile } = useAuth();
-  const [notifications, setNotifications] = useState([
-    {
-      id: 'n1',
-      title: 'Jadwal UTS Diperbarui',
-      message: 'Jadwal UTS semester ini digeser ke minggu depan, cek Mata Pelajaran untuk detail.',
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ title: '', message: '' });
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  async function loadNotifications() {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id, title, message, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) setError(error.message);
+    else setNotifications(data ?? []);
+    setLoading(false);
+  }
 
   async function handleSend(e) {
     e.preventDefault();
     setSending(true);
+    setError('');
 
-    if (!USE_MOCK_AUTH) {
-      // TODO(supabase): sambungkan ke tabel nyata setelah backend aktif.
-      // const { data, error } = await supabase
-      //   .from('notifications')
-      //   .insert({ title: form.title, message: form.message, created_by: profile.id })
-      //   .select()
-      //   .single();
-      // if (!error) setNotifications((prev) => [data, ...prev]);
-    }
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({ title: form.title, message: form.message, created_by: profile?.id })
+      .select()
+      .single();
 
-    setNotifications((prev) => [
-      { id: crypto.randomUUID(), ...form, created_at: new Date().toISOString() },
-      ...prev,
-    ]);
-    setForm({ title: '', message: '' });
     setSending(false);
+    if (error) return setError(error.message);
+    setNotifications((prev) => [data, ...prev]);
+    setForm({ title: '', message: '' });
   }
 
   async function handleDelete(id) {
-    // TODO(supabase): await supabase.from('notifications').delete().eq('id', id);
+    const { error } = await supabase.from('notifications').delete().eq('id', id);
+    if (error) return setError(error.message);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }
 
   return (
     <div className="space-y-4">
+      {error && <p className="text-primary text-xs font-semibold">{error}</p>}
       <div className="bg-tertiary border border-border rounded-xl p-6">
         <h3 className="text-on-surface-muted font-sans text-xs uppercase tracking-[0.14em] font-semibold mb-4">
           Buat Notifikasi Baru
@@ -93,7 +97,8 @@ export function NotificationsCenter() {
           Riwayat Notifikasi
         </h3>
         <div className="divide-y divide-border mt-3">
-          {notifications.length === 0 && (
+          {loading && <p className="text-xs text-on-surface-muted px-6 py-4">Memuat riwayat...</p>}
+          {!loading && notifications.length === 0 && (
             <p className="text-xs text-on-surface-muted px-6 py-4">Belum ada notifikasi terkirim.</p>
           )}
           {notifications.map((n) => (

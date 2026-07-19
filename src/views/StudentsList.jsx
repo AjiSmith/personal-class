@@ -1,20 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-
-// TODO(supabase): fetch awal
-// useEffect(() => { supabase.from('students').select('*').order('absent_no').then(({data}) => setStudents(data ?? [])) }, []);
 
 const emptyForm = { absent_no: '', full_name: '', gender: 'L' };
 
 export function StudentsList() {
-  const [students, setStudents] = useState([
-    { id: '1', absent_no: 1, full_name: 'Ahmad Fauzan', gender: 'L' },
-    { id: '2', absent_no: 2, full_name: 'Siti Aisyah', gender: 'P' },
-  ]);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    loadStudents();
+  }, []);
+
+  async function loadStudents() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('students')
+      .select('*')
+      .order('absent_no', { ascending: true });
+    if (error) setError(error.message);
+    else setStudents(data ?? []);
+    setLoading(false);
+  }
 
   function openAdd() {
     setEditingId(null);
@@ -33,22 +44,27 @@ export function StudentsList() {
     const payload = { ...form, absent_no: Number(form.absent_no) };
 
     if (editingId) {
-      // TODO(supabase): await supabase.from('students').update(payload).eq('id', editingId);
+      const { error } = await supabase.from('students').update(payload).eq('id', editingId);
+      if (error) return setError(error.message);
       setStudents((prev) => prev.map((s) => (s.id === editingId ? { ...s, ...payload } : s)));
     } else {
-      // TODO(supabase): const { data } = await supabase.from('students').insert(payload).select().single();
-      setStudents((prev) => [...prev, { id: crypto.randomUUID(), ...payload }]);
+      const { data, error } = await supabase.from('students').insert(payload).select().single();
+      if (error) return setError(error.message);
+      setStudents((prev) => [...prev, data]);
     }
+    setError('');
     setModalOpen(false);
   }
 
   async function handleDelete(id) {
-    // TODO(supabase): await supabase.from('students').delete().eq('id', id);
+    const { error } = await supabase.from('students').delete().eq('id', id);
+    if (error) return setError(error.message);
     setStudents((prev) => prev.filter((s) => s.id !== id));
   }
 
   return (
     <div className="space-y-4">
+      {error && <p className="text-primary text-xs font-semibold">{error}</p>}
       <div className="flex justify-end">
         <button
           onClick={openAdd}
@@ -69,25 +85,37 @@ export function StudentsList() {
             </tr>
           </thead>
           <tbody>
-            {students
-              .sort((a, b) => a.absent_no - b.absent_no)
-              .map((s) => (
-                <tr key={s.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 text-on-surface-muted">{s.absent_no}</td>
-                  <td className="px-4 py-3 text-secondary font-medium">{s.full_name}</td>
-                  <td className="px-4 py-3 text-on-surface-muted">{s.gender === 'L' ? 'Laki-laki' : 'Perempuan'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => openEdit(s)} className="p-1.5 hover:text-primary text-on-surface-muted">
-                        <Pencil size={14} />
-                      </button>
-                      <button onClick={() => handleDelete(s.id)} className="p-1.5 hover:text-primary text-on-surface-muted">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+            {loading && (
+              <tr>
+                <td colSpan={4} className="px-4 py-6 text-center text-on-surface-muted">
+                  Memuat data siswa...
+                </td>
+              </tr>
+            )}
+            {!loading && students.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-6 text-center text-on-surface-muted">
+                  Belum ada data siswa.
+                </td>
+              </tr>
+            )}
+            {students.map((s) => (
+              <tr key={s.id} className="border-b border-border last:border-0">
+                <td className="px-4 py-3 text-on-surface-muted">{s.absent_no}</td>
+                <td className="px-4 py-3 text-secondary font-medium">{s.full_name}</td>
+                <td className="px-4 py-3 text-on-surface-muted">{s.gender === 'L' ? 'Laki-laki' : 'Perempuan'}</td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => openEdit(s)} className="p-1.5 hover:text-primary text-on-surface-muted">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => handleDelete(s.id)} className="p-1.5 hover:text-primary text-on-surface-muted">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

@@ -22,11 +22,11 @@ export function Login() {
     <div className="min-h-screen bg-neutral flex items-center justify-center px-4 font-sans">
       <div className="w-full max-w-sm bg-tertiary border border-border rounded-xl p-8">
         <div className="text-center mb-8">
-          <h1 className="font-monospace font-black text-3xl text-primary tracking-[0.08em]">
+          <h1 className="font-navbarHeading text-3xl font-black text-primary tracking-[0.08em]">
             LOG-IN
           </h1>
           <p className="text-[12px] text-on-surface-muted tracking-[0.14em] font-semibold mt-1">
-            Masukkan username dan password untuk log-in.
+            Masukkan Kredensial untuk Log-In
           </p>
         </div>
 
@@ -72,10 +72,7 @@ export function Login() {
 
         {import.meta.env.VITE_USE_MOCK_AUTH === 'true' && (
           <div className="mt-6 text-[11px] text-on-surface-muted border-t border-border pt-4 space-y-1">
-            <p className="font-semibold uppercase tracking-[0.1em]">Mode Testing Aktif</p>
-            <p>admin / admin123 — Developer</p>
-            <p>sekretaris / sekretaris123 — Sekretaris</p>
-            <p>guru / guru123 — Guru</p>
+            <p className="font-semibold uppercase flex items-center justify-center tracking-[0.1em]">@ Azimas P.S.</p>
           </div>
         )}
       </div>

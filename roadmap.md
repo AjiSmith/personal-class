@@ -19,12 +19,49 @@ kelas XI-TKJ III yang berjalan di atas **Vite + React**, **Supabase
 | Breakdown sub-modules | ✅ | `components/` (Sidebar, Header, DashboardCard) + `views/` (8 view) |
 | `layoutId` sidebar animation | ✅ | `Sidebar.jsx` pakai `motion.span layoutId="nav-active-pill"` |
 | Data Siswa layout matrix | ✅ | `views/StudentsList.jsx` — No Absen, Nama, Gender, CRUD |
+| Notifications system | ✅ | `notifications` + `notification_reads` tabel; bell di `Header.jsx` (semua role, unread badge nyata) + `views/NotificationsCenter.jsx` (developer-only, buat/hapus notifikasi) |
+| Semua view tersambung ke Supabase asli | ✅ | Tidak ada lagi `useState` mock sebagai sumber data — lihat §0.1 di bawah |
 | Absensi Harian grid | ✅ | `views/AttendanceTracker.jsx` — status button autosave |
 | Struktur direktori target | ✅ | Diperluas (lihat §2) karena fitur lebih detail dari to-do awal |
 
 Semua panggilan Supabase ditandai `// TODO(supabase): ...` di dalam kode —
-scaffold berjalan dengan **mock data lokal** dulu supaya UI bisa langsung
-dicoba sebelum backend tersambung.
+scaffold awalnya berjalan dengan **mock data lokal**. Update terbaru: semua
+view sudah disambungkan ke query Supabase sungguhan.
+
+### 0.1 Rincian koneksi data per view
+
+| View | Query Supabase |
+|---|---|
+| `DashboardHome` | `count` siswa aktif, `attendance` hari ini & bulan berjalan (diagregasi di client), `subjects` difilter `day_of_week` = hari ini |
+| `StudentsList` | CRUD penuh ke tabel `students` |
+| `AttendanceTracker` | fetch siswa aktif + `attendance` pada tanggal terpilih, `upsert` saat tombol status ditekan |
+| `AttendanceRecap` | fetch `attendance` dalam rentang bulan, diagregasi per siswa di client, lalu di-export via SheetJS |
+| `ClassFunds` | fetch siswa + `class_funds` pada periode terpilih, `upsert` saat nominal diubah |
+| `SubjectsManagement` | CRUD ke tabel `subjects`, termasuk field baru `day_of_week` |
+| `GradeManagement` | `subjects` difilter `teacher_user_id` (kecuali developer), fetch/`upsert` ke `grades` saat Enter ditekan |
+| `UserManagement` | fetch tabel `users`; create/delete akun memanggil **Edge Function** (lihat §0.2) karena butuh service-role key |
+| `NotificationsCenter` | CRUD ke tabel `notifications`, dibatasi RLS untuk role developer |
+
+### 0.2 Edge Functions (wajib di-deploy terpisah)
+
+Membuat/menghapus akun login (`UserManagement`) tidak bisa dilakukan langsung
+dari browser karena butuh `SUPABASE_SERVICE_ROLE_KEY` — key ini tidak boleh
+pernah dikirim ke client. Solusinya dua Edge Function di
+`supabase/functions/`:
+
+- `create-user` — membuat user di Supabase Auth + baris di tabel `users`
+  sekaligus (rollback otomatis kalau salah satu gagal)
+- `delete-user` — menghapus baris `users` **dan** akun Auth-nya (menghapus
+  baris `users` saja akan meninggalkan akun login yang "yatim")
+
+Deploy dengan Supabase CLI:
+```bash
+supabase functions deploy create-user
+supabase functions deploy delete-user
+```
+Keduanya sudah memverifikasi bahwa pemanggilnya berrole `developer` sebelum
+melakukan apa pun — jadi aman dipanggil dari `supabase.functions.invoke(...)`
+di client tanpa perlu pengecekan tambahan di frontend.
 
 ---
 
