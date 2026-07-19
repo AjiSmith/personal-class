@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* Mengimpor Font Google Blinker sesuai panduan Valrise Gaming */
+@import url('https://fonts.googleapis.com/css2?family=Blinker:wght@300;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=New+Rocker&family=Rubik+80s+Fade&family=Special+Elite&display=swap');
+
+@theme {
+  /* --- Palet Warna Valrise Gaming (Cinematic Dark & Red) --- */
+  --color-primary: #C1121F;         /* Signature Red */
+  --color-primary-90: #A50F1A;      /* Button Hover */
+  --color-primary-80: #8E0D17;      /* Alt Accent */
+  --color-secondary: #F5F5F5;        /* Light Text / High Contrast Counter */
+  --color-neutral: #0A0A0A;          /* Base Dark Background */
+  --color-surface: #121212;          /* Control / Separation Layer */
+  --color-surface-2: #1B1B1B;        /* Chips & Secondary Containers */
+  --color-tertiary: #181818;         /* Card Background */
+  --color-on-surface: #F5F5F5;       /* Main Card Text */
+  --color-on-surface-muted: #B9B9B9; /* Muted Body & Secondary Details */
+  --color-border: #333333;           /* Thin Structural Borders */
+  --color-error: #C1121F;            /* Brand Red Reused for Error */
+
+  /* --- Tipografi Valrise Gaming --- */
+  --font-sans: "Blinker", sans-serif;
+  --font-display: "Blinker", sans-serif;
+  --font-navbarHeading: "New Rocker", cursive;
+  --font-heroHeading: "Rubik 80s Fade", sans-serif;
+  --font-heroParagraph: "Special Elite", monospace;
+
+  /* --- Radius Bentuk (Border Radius) --- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 18px;
+  --radius-xl: 30px;
+}
+
+/* Kustomisasi scrollbar dengan gaya gelap minimalis Valrise Gaming */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-neutral);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* Dark-mode native form elements (checkbox, radio, select, date, etc.) */
+input,
+select,
+textarea {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color-scheme: dark;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
